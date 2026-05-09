@@ -3,7 +3,7 @@ import { DAYS, PX_PER_MIN_HOR, TIMELINE_WIDTH } from '../constants/palette';
 import { formatTime } from '../utils/helpers';
 import { EventBlock } from './EventBlock';
 
-export function Timeline({ buckets, allEvents, selectedBucket, activeBucket, getLockingEvents, getAvailableSlots, removeEvent, editEvent }) {
+export function Timeline({ buckets, allEvents, selectedBucket, activeBucket, getLockingEvents, getAvailableSlots, removeEvent, editEvent, onEventClick }) {
   const hourMarkers = [];
   for (let h = 0; h <= 24; h++) {
     if (h % 2 === 0 || h === 1 || h === 23) hourMarkers.push(h);
@@ -96,7 +96,6 @@ export function Timeline({ buckets, allEvents, selectedBucket, activeBucket, get
               </div>
               
               <div style={{ position: "relative", flex: 1, minWidth: TIMELINE_WIDTH, height: 70 }}>
-                {/* Available Time Slots - Visual background guides */}
                 {availableSlots.map((slot, idx) => (
                   <div
                     key={`available-${idx}`}
@@ -124,12 +123,11 @@ export function Timeline({ buckets, allEvents, selectedBucket, activeBucket, get
                       whiteSpace: 'nowrap',
                       fontWeight: 500
                     }}>
-                      ✓ {formatTime(slot.start)}-{formatTime(slot.end)}
+                      {formatTime(slot.start)}-{formatTime(slot.end)}
                     </div>
                   </div>
                 ))}
                 
-                {/* Locked overlays from higher priority */}
                 {lockingEvents.map((lock, idx) => (
                   <div key={"lock-" + idx} style={{
                     position: "absolute",
@@ -144,12 +142,11 @@ export function Timeline({ buckets, allEvents, selectedBucket, activeBucket, get
                   }}>
                     <div className="locked-overlay" style={{ width: "100%", height: "100%" }} />
                     <div style={{ position: "absolute", left: 4, top: 2, fontSize: 7, color: lock.color.bg, fontWeight: 500, background: "rgba(255,255,240,0.8)", padding: "0 3px", borderRadius: 2 }}>
-                      🔒 {lock.bucketName}
+                      Locked: {lock.bucketName}
                     </div>
                   </div>
                 ))}
                 
-                {/* User Events */}
                 {positionedEvents.map(ev => {
                   const isActive = ev.bucketId === selectedBucket;
                   const eventColor = buckets.find(b => b.id === ev.bucketId)?.color || ev.color;
@@ -168,6 +165,7 @@ export function Timeline({ buckets, allEvents, selectedBucket, activeBucket, get
                       onRemove={removeEvent}
                       onEdit={editEvent}
                       isActive={isActive}
+                      onClick={() => onEventClick && onEventClick(ev)}
                     />
                   );
                 })}
@@ -179,4 +177,3 @@ export function Timeline({ buckets, allEvents, selectedBucket, activeBucket, get
     </div>
   );
 }
-

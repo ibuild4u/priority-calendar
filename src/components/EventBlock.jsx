@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { formatTime, parseTime, formatDuration } from '../utils/helpers'
 
-export function EventBlock({ event, bucketColor, onRemove, onEdit, isActive }) {
+export function EventBlock({ event, bucketColor, onRemove, onEdit, isActive, onClick }) {
   const [isEditing, setIsEditing] = useState(false)
   const [editLabel, setEditLabel] = useState(event.label)
   const [editStartTime, setEditStartTime] = useState(formatTime(event.startMin))
@@ -92,8 +92,8 @@ export function EventBlock({ event, bucketColor, onRemove, onEdit, isActive }) {
       zIndex: 5,
       cursor: 'pointer',
       boxShadow: isActive ? '0 2px 4px rgba(0,0,0,0.2)' : 'none'
-    }}>
-      <div style={{ fontSize: 8, color: "#fff", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", cursor: 'pointer' }} onDoubleClick={() => setIsEditing(true)}>
+    }} onClick={onClick}>
+      <div style={{ fontSize: 8, color: "#fff", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", cursor: 'pointer' }} onDoubleClick={(e) => { e.stopPropagation(); setIsEditing(true); }}>
         {event.label}
       </div>
       {event.width > 60 && (
@@ -108,4 +108,3 @@ export function EventBlock({ event, bucketColor, onRemove, onEdit, isActive }) {
     </div>
   )
 }
-

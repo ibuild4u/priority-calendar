@@ -1,16 +1,15 @@
-﻿// src/App.jsx - Mobile responsive version
+﻿// src/App.jsx - Simplified single panel layout
 import { useState, useEffect } from 'react'
 import { useCalendar } from './hooks/useCalendar'
 import { SimpleAuth } from './components/SimpleAuth'
 import { CalendarActions } from './components/CalendarActions'
 import { storageService } from './services/localStorageService'
 import { parseTime, parseDuration } from './utils/helpers'
-import { Sidebar } from './components/Sidebar'
 import { EventForm } from './components/EventForm'
 import { Timeline } from './components/Timeline'
-import { EventDetails } from './components/EventDetails'
 import { ThemePicker } from './components/ThemePicker'
-import { MobileMenu } from './components/MobileMenu'
+import { BucketManager } from './components/BucketManager'
+import { EventDetailsModal } from './components/EventDetailsModal'
 import { THEMES } from './constants/themes'
 
 function App() {
@@ -18,8 +17,9 @@ function App() {
   const [currentCalendarId, setCurrentCalendarId] = useState(null)
   const [currentTheme, setCurrentTheme] = useState('default')
   const [showThemePicker, setShowThemePicker] = useState(false)
+  const [showBucketManager, setShowBucketManager] = useState(false)
+  const [showEventDetails, setShowEventDetails] = useState(null)
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
-  const [showMobileDetails, setShowMobileDetails] = useState(false)
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768)
@@ -136,13 +136,47 @@ function App() {
   const theme = THEMES[currentTheme] || THEMES.default
   const colors = theme.colors
 
+  const handleEventClick = (event) => {
+    setShowEventDetails(event)
+  }
+
   return (
-    <div style={{ fontFamily: "'IBM Plex Mono', monospace", background: colors.background, height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <div style={{ fontFamily: "'IBM Plex Mono', monospace", background: colors.background, minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       {showThemePicker && (
         <ThemePicker
           currentTheme={currentTheme}
           onThemeChange={handleThemeChange}
           onClose={() => setShowThemePicker(false)}
+        />
+      )}
+      
+      {showBucketManager && (
+        <BucketManager
+          buckets={buckets}
+          selectedBucket={selectedBucket}
+          setSelectedBucket={setSelectedBucket}
+          newBucketName={newBucketName}
+          setNewBucketName={setNewBucketName}
+          newBucketPriority={newBucketPriority}
+          setNewBucketPriority={setNewBucketPriority}
+          addBucket={addBucket}
+          removeBucket={removeBucket}
+          onClose={() => setShowBucketManager(false)}
+          colors={colors}
+        />
+      )}
+      
+      {showEventDetails && activeBucket && (
+        <EventDetailsModal
+          event={showEventDetails}
+          bucket={activeBucket}
+          onClose={() => setShowEventDetails(null)}
+          onEdit={editEvent}
+          onDelete={() => {
+            removeEvent(showEventDetails.bucketId, showEventDetails.id)
+            setShowEventDetails(null)
+          }}
+          colors={colors}
         />
       )}
       
@@ -155,11 +189,8 @@ function App() {
         input:focus, select:focus { border-color: ${colors.buttonPrimary}; background: ${colors.background}; }
         button { font-family: 'IBM Plex Mono', monospace; cursor: pointer; }
         .btn-ghost { background: transparent; border: 1px solid ${colors.buttonSecondary}; color: ${colors.buttonSecondary}; padding: 8px 14px; font-size: 13px; border-radius: 8px; transition: all 0.15s; }
-        .btn-ghost:hover { background: ${colors.sidebarBg}; color: ${colors.buttonPrimary}; border-color: ${colors.buttonPrimary}; }
         .btn-solid { background: ${colors.buttonPrimary}; border: 1px solid ${colors.buttonPrimary}; color: ${colors.headerText}; padding: 10px 16px; font-size: 13px; border-radius: 8px; transition: background 0.15s; }
         .btn-solid:hover { background: ${colors.buttonPrimaryHover}; }
-        .bucket-row:hover { background: ${colors.sidebarBg}; }
-        .bucket-row.active { background: ${colors.timeRulerBg}; }
         .day-chip { transition: all 0.1s; padding: 8px 16px !important; font-size: 13px !important; }
         .day-chip.selected { background: ${colors.buttonPrimary}; border-color: ${colors.buttonPrimary}; color: white; }
         @keyframes fadeUp { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:translateY(0); } }
@@ -169,36 +200,19 @@ function App() {
         @media (max-width: 768px) {
           input, select { font-size: 16px !important; padding: 12px !important; }
           .btn-ghost, .btn-solid { padding: 10px 16px !important; font-size: 14px !important; }
-          .bucket-row div { font-size: 14px !important; }
         }
       `}</style>
 
+      {/* Header */}
       <div style={{ background: colors.headerBg, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          {isMobile && (
-            <MobileMenu button={<button className="btn-ghost" style={{ padding: '8px 12px', fontSize: '18px' }}>☰</button>}>
-              <Sidebar 
-                buckets={buckets}
-                selectedBucket={selectedBucket}
-                setSelectedBucket={setSelectedBucket}
-                panel={panel}
-                setPanel={setPanel}
-                newBucketName={newBucketName}
-                setNewBucketName={setNewBucketName}
-                newBucketPriority={newBucketPriority}
-                setNewBucketPriority={setNewBucketPriority}
-                addBucket={addBucket}
-                removeBucket={removeBucket}
-                isMobile={true}
-              />
-            </MobileMenu>
-          )}
-          <div>
-            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: isMobile ? 16 : 20, color: colors.headerText, fontWeight: 900 }}>Priority Lock</div>
-            <div style={{ fontSize: isMobile ? 8 : 9, color: colors.buttonSecondary, marginTop: 1 }}>Welcome, {user}</div>
-          </div>
+        <div>
+          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: isMobile ? 16 : 20, color: colors.headerText, fontWeight: 900 }}>Priority Lock</div>
+          <div style={{ fontSize: isMobile ? 8 : 9, color: colors.buttonSecondary, marginTop: 1 }}>{user}</div>
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <button className="btn-ghost" onClick={() => setShowBucketManager(true)} style={{ fontSize: isMobile ? 11 : 12, padding: '6px 10px' }}>
+            📦 Buckets
+          </button>
           <button className="btn-ghost" onClick={() => setShowThemePicker(true)} style={{ fontSize: isMobile ? 11 : 12, padding: '6px 10px' }}>
             🎨
           </button>
@@ -214,114 +228,43 @@ function App() {
         </div>
       </div>
 
-      <div style={{ display: "flex", flex: 1, overflow: "hidden", flexDirection: isMobile ? "column" : "row" }}>
-        {!isMobile && (
-          <Sidebar 
+      {/* Main Content */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", padding: '16px' }}>
+        <EventForm 
+          activeBucket={activeBucket}
+          addEventDays={addEventDays}
+          toggleDaySelection={toggleDaySelection}
+          showDaySelector={showDaySelector}
+          setShowDaySelector={setShowDaySelector}
+          addEventStartTime={addEventStartTime}
+          setAddEventStartTime={setAddEventStartTime}
+          addEventEndTime={addEventEndTime}
+          setAddEventEndTime={setAddEventEndTime}
+          addEventDuration={addEventDuration}
+          setAddEventDuration={setAddEventDuration}
+          addEventLabel={addEventLabel}
+          setAddEventLabel={setAddEventLabel}
+          addEvent={handleAddEvent}
+          externalEventError={eventError}
+          conflictPreview={null}
+          confirmOverride={() => {}}
+          cancelOverride={() => {}}
+        />
+
+        <div style={{ flex: 1, overflow: "auto", marginTop: '16px', borderRadius: '8px' }}>
+          <Timeline 
             buckets={buckets}
+            allEvents={allEvents}
             selectedBucket={selectedBucket}
-            setSelectedBucket={setSelectedBucket}
-            panel={panel}
-            setPanel={setPanel}
-            newBucketName={newBucketName}
-            setNewBucketName={setNewBucketName}
-            newBucketPriority={newBucketPriority}
-            setNewBucketPriority={setNewBucketPriority}
-            addBucket={addBucket}
-            removeBucket={removeBucket}
-            isMobile={false}
-          />
-        )}
-
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          <EventForm 
             activeBucket={activeBucket}
-            addEventDays={addEventDays}
-            toggleDaySelection={toggleDaySelection}
-            showDaySelector={showDaySelector}
-            setShowDaySelector={setShowDaySelector}
-            addEventStartTime={addEventStartTime}
-            setAddEventStartTime={setAddEventStartTime}
-            addEventEndTime={addEventEndTime}
-            setAddEventEndTime={setAddEventEndTime}
-            addEventDuration={addEventDuration}
-            setAddEventDuration={setAddEventDuration}
-            addEventLabel={addEventLabel}
-            setAddEventLabel={setAddEventLabel}
-            addEvent={handleAddEvent}
-            externalEventError={eventError}
-            conflictPreview={null}
-            confirmOverride={() => {}}
-            cancelOverride={() => {}}
-          />
-
-          <div style={{ flex: 1, overflow: "auto", position: "relative" }}>
-            <Timeline 
-              buckets={buckets}
-              allEvents={allEvents}
-              selectedBucket={selectedBucket}
-              activeBucket={activeBucket}
-              getLockingEvents={getLockingEvents}
-              getAvailableSlots={getAvailableSlots}
-              removeEvent={removeEvent}
-              editEvent={editEvent}
-            />
-          </div>
-        </div>
-
-        {!isMobile && (
-          <EventDetails 
-            activeBucket={activeBucket}
+            getLockingEvents={getLockingEvents}
+            getAvailableSlots={getAvailableSlots}
             removeEvent={removeEvent}
+            editEvent={editEvent}
+            onEventClick={handleEventClick}
           />
-        )}
-      </div>
-      
-      {isMobile && showMobileDetails && activeBucket && (
-        <div style={{
-          position: 'fixed',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          background: colors.sidebarBg,
-          borderTop: `1px solid ${colors.sidebarBorder}`,
-          maxHeight: '50vh',
-          overflowY: 'auto',
-          zIndex: 100,
-          borderRadius: '12px 12px 0 0',
-          animation: 'fadeUp 0.3s ease'
-        }}>
-          <div style={{ padding: '12px', display: 'flex', justifyContent: 'flex-end' }}>
-            <button onClick={() => setShowMobileDetails(false)} className="btn-ghost" style={{ padding: '4px 8px' }}>✕</button>
-          </div>
-          <EventDetails activeBucket={activeBucket} removeEvent={removeEvent} />
         </div>
-      )}
-      
-      {isMobile && activeBucket && (
-        <button
-          onClick={() => setShowMobileDetails(!showMobileDetails)}
-          style={{
-            position: 'fixed',
-            bottom: '16px',
-            right: '16px',
-            background: colors.buttonPrimary,
-            color: colors.headerText,
-            border: 'none',
-            borderRadius: '50%',
-            width: '56px',
-            height: '56px',
-            fontSize: '24px',
-            cursor: 'pointer',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-            zIndex: 90,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}
-        >
-          📋
-        </button>
-      )}
+      </div>
     </div>
   )
 }
