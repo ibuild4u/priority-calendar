@@ -1,4 +1,4 @@
-/* src/build_000_001/index.css */
+﻿/* src/index.css - Add touch scrolling */
 * {
   margin: 0;
   padding: 0;
@@ -8,4 +8,25 @@
 body {
   font-family: 'IBM Plex Mono', monospace;
   background: #f5f0e8;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Smooth scrolling on iOS */
+div {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Larger touch targets on mobile */
+@media (max-width: 768px) {
+  button, 
+  .btn-ghost, 
+  .btn-solid,
+  .day-chip,
+  .event-block {
+    min-height: 44px;
+  }
+  
+  .event-block {
+    cursor: pointer !important;
+  }
 }
