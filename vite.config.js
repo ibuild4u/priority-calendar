@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  base: '/YOUR_REPO_NAME/', // Replace with your actual repo name
+  base: '/',
   server: {
     port: 5173,
     open: true
