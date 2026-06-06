@@ -1,6 +1,5 @@
 ﻿import React from 'react'
-import { DAYS, DAY_FULL } from '../constants/palette';
-import { formatTime, formatDuration } from '../utils/helpers';
+import { formatTime, formatDuration, formatDateLabel, getEventDate } from '../utils/helpers';
 
 export function EventDetails({ activeBucket, removeEvent }) {
   if (!activeBucket) return null;
@@ -21,15 +20,17 @@ export function EventDetails({ activeBucket, removeEvent }) {
       <div style={{ flex: 1 }}>
         {activeBucket.events.length === 0 ? (
           <div style={{ fontSize: 10, color: "#b0a898", padding: "18px 14px", textAlign: "center" }}>
-            No events yet.<br />Select days, set start/end times
+            No events yet.<br />Tap + to add an event
           </div>
         ) : (
-          [...activeBucket.events].sort((a, b) => a.dayIdx - b.dayIdx || a.startMin - b.startMin).map(ev => (
+          [...activeBucket.events]
+            .sort((a, b) => getEventDate(a).localeCompare(getEventDate(b)) || a.startMin - b.startMin)
+            .map(ev => (
             <div key={ev.id} style={{ padding: "8px 12px", borderBottom: "1px solid #ddd6c8" }}>
               <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
                 <div style={{ width: 3, height: 36, borderRadius: 2, background: activeBucket.color.bg, flexShrink: 0 }} />
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 10, fontWeight: 500 }}>{DAYS[ev.dayIdx]}</div>
+                  <div style={{ fontSize: 10, fontWeight: 500 }}>{formatDateLabel(getEventDate(ev))}</div>
                   <div style={{ fontSize: 9, color: "#7a6e62" }}>
                     {formatTime(ev.startMin)} – {formatTime(ev.startMin + ev.durationMins)} ({formatDuration(ev.durationMins)})
                   </div>

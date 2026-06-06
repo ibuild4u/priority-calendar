@@ -1,7 +1,7 @@
 ﻿import React from 'react'
 // src/build_000_002/components/CalendarActions.jsx
 import { useState, useRef } from 'react'
-import { storageService } from '../services/localStorageService'
+import { storageService } from '../services/fileStorageService'
 import { exportService } from '../services/exportService'
 
 export function CalendarActions({ 
@@ -17,25 +17,25 @@ export function CalendarActions({
   const [isExporting, setIsExporting] = useState(false)
   const fileInputRef = useRef(null)
 
-  const loadSavedList = () => {
-    const calendars = storageService.getUserCalendars()
+  const loadSavedList = async () => {
+    const calendars = await storageService.getUserCalendars()
     setSavedCalendars(calendars)
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!calendarName.trim()) {
       alert('Please enter a calendar name')
       return
     }
-    storageService.saveCalendar(buckets, calendarName)
+    await storageService.saveCalendar(buckets, calendarName)
     setShowSaveModal(false)
     setCalendarName('')
-    loadSavedList()
+    await loadSavedList()
     alert('Calendar saved successfully!')
   }
 
-  const handleLoad = (calendarId) => {
-    const calendar = storageService.loadCalendar(calendarId)
+  const handleLoad = async (calendarId) => {
+    const calendar = await storageService.loadCalendar(calendarId)
     if (calendar) {
       onCalendarLoaded(calendar.buckets, calendar.id)
       setCurrentCalendarId(calendar.id)
@@ -44,10 +44,10 @@ export function CalendarActions({
     }
   }
 
-  const handleDelete = (calendarId, calendarName) => {
+  const handleDelete = async (calendarId, calendarName) => {
     if (confirm('Delete "' + calendarName + '"?')) {
-      storageService.deleteCalendar(calendarId)
-      loadSavedList()
+      await storageService.deleteCalendar(calendarId)
+      await loadSavedList()
       if (currentCalendarId === calendarId) {
         onCalendarLoaded([], null)
         setCurrentCalendarId(null)
@@ -87,8 +87,8 @@ export function CalendarActions({
   const handleImportJSON = (event) => {
     const file = event.target.files[0]
     if (file) {
-      storageService.importFromJSON(file).then(calendars => {
-        loadSavedList()
+      storageService.importFromJSON(file).then(async (calendars) => {
+        await loadSavedList()
         alert('Imported ' + calendars.length + ' calendars')
       }).catch(error => {
         alert('Import failed: ' + error.message)

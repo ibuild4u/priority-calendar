@@ -1,7 +1,7 @@
 ﻿import React from 'react'
 // src/build_000_002/components/SimpleAuth.jsx
 import { useState } from 'react'
-import { storageService } from '../services/localStorageService'
+import { storageService } from '../services/fileStorageService'
 import { THEMES } from '../constants/themes'
 
 export function SimpleAuth({ onAuthSuccess }) {
@@ -11,22 +11,19 @@ export function SimpleAuth({ onAuthSuccess }) {
   const [selectedTheme, setSelectedTheme] = useState('default')
   const [pendingUsername, setPendingUsername] = useState('')
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     if (!username.trim()) {
       setError('Please enter a username')
       return
     }
-    
-    // Check if this user has a saved theme preference
-    const savedTheme = storageService.getThemePreference(username.trim())
-    
+
+    const savedTheme = await storageService.getThemePreference(username.trim())
+
     if (savedTheme && savedTheme !== 'default') {
-      // User has existing theme preference, just log them in
-      storageService.login(username.trim())
+      await storageService.login(username.trim())
       onAuthSuccess(username.trim(), savedTheme)
     } else {
-      // New user or no theme saved, show theme picker
       setPendingUsername(username.trim())
       setShowThemeSelect(true)
     }
@@ -36,9 +33,9 @@ export function SimpleAuth({ onAuthSuccess }) {
     setSelectedTheme(themeKey)
   }
 
-  const handleThemeConfirm = () => {
-    storageService.login(pendingUsername)
-    storageService.saveThemePreference(pendingUsername, selectedTheme)
+  const handleThemeConfirm = async () => {
+    await storageService.login(pendingUsername)
+    await storageService.saveThemePreference(pendingUsername, selectedTheme)
     onAuthSuccess(pendingUsername, selectedTheme)
   }
 

@@ -61,6 +61,55 @@ export function overlaps(a, b) {
   return a.startMin < b.endMin && a.endMin > b.startMin;
 }
 
-export function uid() { 
-  return Math.random().toString(36).slice(2, 9); 
+export function uid() {
+  return Math.random().toString(36).slice(2, 9);
+}
+
+// Returns the most recent Monday as a Date object (midnight local)
+export function getMostRecentMonday() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  const day = d.getDay(); // 0=Sun
+  d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
+  return d;
+}
+
+// dayIdx 0=Mon … 6=Sun → "YYYY-MM-DD" in the current week
+export function dateFromDayIdx(dayIdx) {
+  const monday = getMostRecentMonday();
+  monday.setDate(monday.getDate() + (dayIdx ?? 0));
+  return monday.toISOString().slice(0, 10);
+}
+
+// "YYYY-MM-DD" → dayIdx 0=Mon … 6=Sun
+export function dayIdxFromDate(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  const jsDay = d.getDay(); // 0=Sun
+  return jsDay === 0 ? 6 : jsDay - 1;
+}
+
+// "YYYY-MM-DD" → "Tue Jun 3"
+export function formatDateLabel(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const months   = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${weekdays[d.getDay()]} ${months[d.getMonth()]} ${d.getDate()}`;
+}
+
+// Returns all "YYYY-MM-DD" strings from minDate to maxDate inclusive
+export function getDatesInRange(minDate, maxDate) {
+  const dates = [];
+  const end = new Date(maxDate + 'T12:00:00');
+  const cur = new Date(minDate + 'T12:00:00');
+  while (cur <= end) {
+    dates.push(cur.toISOString().slice(0, 10));
+    cur.setDate(cur.getDate() + 1);
+  }
+  return dates;
+}
+
+// Migration helper: resolve an event's canonical date string
+export function getEventDate(ev) {
+  if (ev.date) return ev.date;
+  return dateFromDayIdx(ev.dayIdx ?? 0);
 }

@@ -3,3 +3,8 @@ dist/
 .env
 .DS_Store
 *.log
+
+# User data — commit only testuser seed files
+public/data/session.json
+public/data/users/**
+!public/data/users/testuser/**
