@@ -1,0 +1,863 @@
+=== File(s) to make up case===:
+App.jsx
+Timeline.jsx
+EventBlock.jsx
+BucketManager.jsx
+EventDetailsModal.jsx
+
+=== Case Context===:
+No context provided
+
+==== Full project directory path=====
+D:\b_external_HDD_loads\a_pc_01\_workflows\Coding\Programs\vsc\Projects\m_priority_calendar\a_windows_dev\build_000_000\deploy_2_github_pages
+
+=== PROJECT TREE ===
+
++-- .gitignore
++-- index.html
++-- package.json
++-- package-lock.json
++-- README.md
++-- vite.config.js
++-- .github
+    +-- workflows
+        +-- deploy.yml
++-- dist
++-- node_modules
++-- public
+    +-- favicon.svg
+    +-- icons.svg
++-- src
+    +-- App.jsx
+    +-- index.css
+    +-- main.jsx
+    +-- components
+        +-- AvailableTimeSlots.jsx
+        +-- BucketManager.jsx
+        +-- CalendarActions.jsx
+        +-- DaySelector.jsx
+        +-- EventBlock.jsx
+        +-- EventDetails.jsx
+        +-- EventDetailsModal.jsx
+        +-- EventForm.jsx
+        +-- Header.jsx
+        +-- MobileMenu.jsx
+        +-- Sidebar.jsx
+        +-- SimpleAuth.jsx
+        +-- ThemePicker.jsx
+        +-- Timeline.jsx
+    +-- constants
+        +-- palette.js
+        +-- themes.js
+    +-- hooks
+        +-- useCalendar.js
+    +-- services
+        +-- exportService.js
+        +-- localStorageService.js
+    +-- utils
+        +-- helpers.js
+
+=== FILE CONTENTS DUMP ===
+
+=== BEGINNING OF ====
+File: App.jsx
+Path: .\src\App.jsx
+
+// src/App.jsx - Simplified single panel layout
+import { useState, useEffect } from 'react'
+import { useCalendar } from './hooks/useCalendar'
+import { SimpleAuth } from './components/SimpleAuth'
+import { CalendarActions } from './components/CalendarActions'
+import { storageService } from './services/localStorageService'
+import { parseTime, parseDuration } from './utils/helpers'
+import { EventForm } from './components/EventForm'
+import { Timeline } from './components/Timeline'
+import { ThemePicker } from './components/ThemePicker'
+import { BucketManager } from './components/BucketManager'
+import { THEMES } from './constants/themes'
+
+function App() {
+  const [user, setUser] = useState(null)
+  const [currentCalendarId, setCurrentCalendarId] = useState(null)
+  const [currentTheme, setCurrentTheme] = useState('default')
+  const [showThemePicker, setShowThemePicker] = useState(false)
+  const [showBucketManager, setShowBucketManager] = useState(false)
+  const [showEventDetails, setShowEventDetails] = useState(null)
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  const {
+    buckets, selectedBucket, panel, addEventDays, addEventStartTime, addEventEndTime,
+    addEventDuration, addEventLabel, eventError, showDaySelector, newBucketName, newBucketPriority,
+    allEvents, setSelectedBucket, setPanel, setAddEventStartTime, setAddEventEndTime,
+    setAddEventDuration, setAddEventLabel, setEventError, setShowDaySelector, setNewBucketName, setNewBucketPriority,
+    setBuckets, addBucket, removeBucket, addEventToDays, editEvent, removeEvent, toggleDaySelection,
+    getAvailableSlots, getLockingEvents
+  } = useCalendar()
+
+  useEffect(() => {
+    const currentUser = storageService.getCurrentUser()
+    if (currentUser) {
+      const savedTheme = storageService.getThemePreference(currentUser)
+      setCurrentTheme(savedTheme)
+      setUser(currentUser)
+    }
+  }, [])
+
+  const handleAuthSuccess = (username, theme) => {
+    setUser(username)
+    if (theme) {
+      setCurrentTheme(theme)
+    } else {
+      const savedTheme = storageService.getThemePreference(username)
+      setCurrentTheme(savedTheme)
+    }
+  }
+
+  const handleThemeChange = (themeKey) => {
+    setCurrentTheme(themeKey)
+    if (user) {
+      storageService.saveThemePreference(user, themeKey)
+    }
+    setShowThemePicker(false)
+  }
+
+  const handleCalendarLoaded = (loadedBuckets, calendarId) => {
+    setBuckets(loadedBuckets)
+    if (loadedBuckets.length > 0) {
+      setSelectedBucket(loadedBuckets[0].id)
+    }
+    setCurrentCalendarId(calendarId)
+  }
+
+  const handleLogout = () => {
+    storageService.logout()
+    setUser(null)
+    setBuckets([])
+    setSelectedBucket(null)
+    setCurrentCalendarId(null)
+  }
+
+  const handleAddEvent = () => {
+    if (!selectedBucket) {
+      setEventError("Please select a bucket first")
+      return
+    }
+    
+    if (addEventDays.length === 0) {
+      setEventError("Please select at least one day")
+      return
+    }
+    
+    if (!addEventStartTime) {
+      setEventError("Please enter a start time")
+      return
+    }
+    
+    const startMin = parseTime(addEventStartTime)
+    if (startMin === null) {
+      setEventError("Invalid start time format")
+      return
+    }
+    
+    let durationMins = null
+    if (addEventDuration) {
+      durationMins = parseDuration(addEventDuration)
+    } else if (addEventEndTime) {
+      const endMin = parseTime(addEventEndTime)
+      if (endMin !== null && endMin > startMin) {
+        durationMins = endMin - startMin
+      }
+    }
+    
+    if (!durationMins || durationMins < 15) {
+      setEventError("Please enter a valid duration (minimum 15 minutes)")
+      return
+    }
+    
+    const success = addEventToDays(addEventDays, startMin, durationMins, addEventLabel)
+    if (success) {
+      setAddEventStartTime("")
+      setAddEventEndTime("")
+      setAddEventDuration("")
+      setAddEventLabel("")
+      setAddEventDays([])
+      setShowDaySelector(false)
+      setEventError("")
+    }
+  }
+
+  if (!user) {
+    return <SimpleAuth onAuthSuccess={handleAuthSuccess} />
+  }
+
+  const activeBucket = buckets.find(b => b.id === selectedBucket)
+  const theme = THEMES[currentTheme] || THEMES.default
+  const colors = theme.colors
+
+  const handleEventClick = (event) => {
+    setShowEventDetails(event)
+  }
+
+  return (
+    <div style={{ fontFamily: "'IBM Plex Mono', monospace", background: colors.background, minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+      {showThemePicker && (
+        <ThemePicker
+          currentTheme={currentTheme}
+          onThemeChange={handleThemeChange}
+          onClose={() => setShowThemePicker(false)}
+        />
+      )}
+      
+      {showBucketManager && (
+        <BucketManager
+          buckets={buckets}
+          selectedBucket={selectedBucket}
+          setSelectedBucket={setSelectedBucket}
+          newBucketName={newBucketName}
+          setNewBucketName={setNewBucketName}
+          newBucketPriority={newBucketPriority}
+          setNewBucketPriority={setNewBucketPriority}
+          addBucket={addBucket}
+          removeBucket={removeBucket}
+          onClose={() => setShowBucketManager(false)}
+          colors={colors}
+        />
+      )}
+      
+      {showEventDetails && activeBucket && (
+        <EventDetailsModal
+          event={showEventDetails}
+          bucket={activeBucket}
+          onClose={() => setShowEventDetails(null)}
+          onEdit={editEvent}
+          onDelete={() => {
+            removeEvent(showEventDetails.bucketId, showEventDetails.id)
+            setShowEventDetails(null)
+          }}
+          colors={colors}
+        />
+      )}
+      
+      <style>{`
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: ${colors.timeRulerBg}; }
+        ::-webkit-scrollbar-thumb { background: ${colors.buttonSecondary}; border-radius: 4px; }
+        input, select { font-family: 'IBM Plex Mono', monospace; background: ${colors.background}; border: 1px solid ${colors.sidebarBorder}; padding: 10px 12px; font-size: 14px; border-radius: 8px; outline: none; }
+        input:focus, select:focus { border-color: ${colors.buttonPrimary}; background: ${colors.background}; }
+        button { font-family: 'IBM Plex Mono', monospace; cursor: pointer; }
+        .btn-ghost { background: transparent; border: 1px solid ${colors.buttonSecondary}; color: ${colors.buttonSecondary}; padding: 8px 14px; font-size: 13px; border-radius: 8px; transition: all 0.15s; }
+        .btn-solid { background: ${colors.buttonPrimary}; border: 1px solid ${colors.buttonPrimary}; color: ${colors.headerText}; padding: 10px 16px; font-size: 13px; border-radius: 8px; transition: background 0.15s; }
+        .btn-solid:hover { background: ${colors.buttonPrimaryHover}; }
+        .day-chip { transition: all 0.1s; padding: 8px 16px !important; font-size: 13px !important; }
+        .day-chip.selected { background: ${colors.buttonPrimary}; border-color: ${colors.buttonPrimary}; color: white; }
+        @keyframes fadeUp { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:translateY(0); } }
+        .fade-up { animation: fadeUp 0.18s ease forwards; }
+        .locked-overlay { background: repeating-linear-gradient(45deg, rgba(0,0,0,0.08), rgba(0,0,0,0.08) 3px, transparent 3px, transparent 8px); }
+        
+        @media (max-width: 768px) {
+          input, select { font-size: 16px !important; padding: 12px !important; }
+          .btn-ghost, .btn-solid { padding: 10px 16px !important; font-size: 14px !important; }
+        }
+      `}</style>
+
+      {/* Header */}
+      <div style={{ background: colors.headerBg, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+        <div>
+          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: isMobile ? 16 : 20, color: colors.headerText, fontWeight: 900 }}>Priority Lock</div>
+          <div style={{ fontSize: isMobile ? 8 : 9, color: colors.buttonSecondary, marginTop: 1 }}>{user}</div>
+        </div>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <button className="btn-ghost" onClick={() => setShowBucketManager(true)} style={{ fontSize: isMobile ? 11 : 12, padding: '6px 10px' }}>
+            ?? Buckets
+          </button>
+          <button className="btn-ghost" onClick={() => setShowThemePicker(true)} style={{ fontSize: isMobile ? 11 : 12, padding: '6px 10px' }}>
+            ??
+          </button>
+          <CalendarActions 
+            buckets={buckets}
+            onCalendarLoaded={handleCalendarLoaded}
+            currentCalendarId={currentCalendarId}
+            setCurrentCalendarId={setCurrentCalendarId}
+          />
+          <button className="btn-ghost" onClick={handleLogout} style={{ color: colors.errorText, fontSize: isMobile ? 11 : 12, padding: '6px 10px' }}>
+            {isMobile ? '??' : 'Sign Out'}
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", padding: '16px' }}>
+        <EventForm 
+          activeBucket={activeBucket}
+          addEventDays={addEventDays}
+          toggleDaySelection={toggleDaySelection}
+          showDaySelector={showDaySelector}
+          setShowDaySelector={setShowDaySelector}
+          addEventStartTime={addEventStartTime}
+          setAddEventStartTime={setAddEventStartTime}
+          addEventEndTime={addEventEndTime}
+          setAddEventEndTime={setAddEventEndTime}
+          addEventDuration={addEventDuration}
+          setAddEventDuration={setAddEventDuration}
+          addEventLabel={addEventLabel}
+          setAddEventLabel={setAddEventLabel}
+          addEvent={handleAddEvent}
+          externalEventError={eventError}
+          conflictPreview={null}
+          confirmOverride={() => {}}
+          cancelOverride={() => {}}
+        />
+
+        <div style={{ flex: 1, overflow: "auto", marginTop: '16px', borderRadius: '8px' }}>
+          <Timeline 
+            buckets={buckets}
+            allEvents={allEvents}
+            selectedBucket={selectedBucket}
+            activeBucket={activeBucket}
+            getLockingEvents={getLockingEvents}
+            getAvailableSlots={getAvailableSlots}
+            removeEvent={removeEvent}
+            editEvent={editEvent}
+            onEventClick={handleEventClick}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default App
+
+=== END OF FILE ===
+
+=== BEGINNING OF ====
+File: Timeline.jsx
+Path: .\src\components\Timeline.jsx
+
+import React from 'react'
+import { DAYS, PX_PER_MIN_HOR, TIMELINE_WIDTH } from '../constants/palette';
+import { formatTime } from '../utils/helpers';
+import { EventBlock } from './EventBlock';
+
+export function Timeline({ buckets, allEvents, selectedBucket, activeBucket, getLockingEvents, getAvailableSlots, removeEvent, editEvent }) {
+  const hourMarkers = [];
+  for (let h = 0; h <= 24; h++) {
+    if (h % 2 === 0 || h === 1 || h === 23) hourMarkers.push(h);
+  }
+  
+  const getLeftPos = (mins) => mins * 1.9;
+
+  if (buckets.length === 0) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", flexDirection: "column", gap: 15 }}>
+        <div style={{ fontSize: 14, color: "#b0a898", textAlign: "center" }}>No buckets created yet</div>
+        <div style={{ fontSize: 11, color: "#9a8e80", textAlign: "center" }}>Click "+ NEW BUCKET" to create your first priority group</div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ width: '100%', height: '100%', overflow: 'auto' }}>
+      <div style={{ minWidth: TIMELINE_WIDTH + 80 }}>
+        <div style={{ 
+          display: "flex", 
+          borderBottom: "1px solid #d0c8bc", 
+          background: "#e8e2d6", 
+          position: "sticky", 
+          top: 0, 
+          zIndex: 20, 
+          minHeight: 32 
+        }}>
+          <div style={{ 
+            width: 80, 
+            flexShrink: 0, 
+            borderRight: "1px solid #d0c8bc", 
+            paddingLeft: 12, 
+            fontSize: 9, 
+            fontWeight: 500, 
+            display: "flex", 
+            alignItems: "center",
+            position: "sticky",
+            left: 0,
+            background: "#e8e2d6",
+            zIndex: 21
+          }}>
+            DAY
+          </div>
+          <div style={{ position: "relative", flex: 1, minWidth: TIMELINE_WIDTH, height: 32 }}>
+            {hourMarkers.map(h => (
+              <div key={h} style={{ position: "absolute", left: getLeftPos(h * 60), top: 6, transform: "translateX(-50%)" }}>
+                <span style={{ fontSize: 9, color: "#7e6e5a", background: "#e8e2d6", padding: "0 4px" }}>
+                  {h === 0 ? "12a" : h < 12 ? h + "a" : h === 12 ? "12p" : (h-12) + "p"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        {DAYS.map((day, dayIdx) => {
+          const dayEvents = allEvents.filter(e => e.dayIdx === dayIdx);
+          const lockingEvents = activeBucket ? getLockingEvents(activeBucket.id).filter(e => e.dayIdx === dayIdx) : [];
+          const availableSlots = activeBucket ? getAvailableSlots(activeBucket.id, dayIdx) : [];
+          
+          const sortedEvents = [...dayEvents].sort((a, b) => a.startMin - b.startMin);
+          
+          const positionedEvents = sortedEvents.map(ev => ({
+            ...ev,
+            leftPos: getLeftPos(ev.startMin),
+            topPos: 4,
+            height: 62,
+            width: ev.durationMins * 1.9
+          }))
+          
+          return (
+            <div key={day} style={{ display: "flex", borderBottom: "1px solid #eae2d4", minHeight: 70, background: "#fefcf8", position: 'relative' }}>
+              <div style={{ 
+                width: 80, 
+                flexShrink: 0, 
+                borderRight: "1px solid #d8cfc0", 
+                background: "#ede7dd", 
+                display: "flex", 
+                flexDirection: "column", 
+                alignItems: "center", 
+                justifyContent: "center", 
+                gap: 3,
+                position: "sticky",
+                left: 0,
+                zIndex: 10,
+                backgroundColor: "#ede7dd"
+              }}>
+                <span style={{ fontSize: 13, fontWeight: 600 }}>{day}</span>
+                <span style={{ fontSize: 9, color: "#b0a18e" }}>{dayEvents.length} events</span>
+              </div>
+              
+              <div style={{ position: "relative", flex: 1, minWidth: TIMELINE_WIDTH, height: 70 }}>
+                {/* Available Time Slots - Visual background guides */}
+                {availableSlots.map((slot, idx) => (
+                  <div
+                    key={`available-${idx}`}
+                    style={{
+                      position: "absolute",
+                      left: getLeftPos(slot.start),
+                      width: slot.duration * 1.9,
+                      top: 4,
+                      bottom: 4,
+                      background: '#e8f5e9',
+                      borderLeft: '2px solid #81c784',
+                      borderRadius: '2px',
+                      pointerEvents: 'none',
+                      zIndex: 1,
+                      opacity: 0.4
+                    }}
+                  >
+                    <div style={{
+                      position: 'absolute',
+                      left: 4,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      fontSize: 7,
+                      color: '#4caf50',
+                      whiteSpace: 'nowrap',
+                      fontWeight: 500
+                    }}>
+                      ? {formatTime(slot.start)}-{formatTime(slot.end)}
+                    </div>
+                  </div>
+                ))}
+                
+                {/* Locked overlays from higher priority */}
+                {lockingEvents.map((lock, idx) => (
+                  <div key={"lock-" + idx} style={{
+                    position: "absolute",
+                    left: getLeftPos(lock.startMin),
+                    width: lock.durationMins * 1.9,
+                    top: 4, bottom: 4,
+                    background: lock.color.bg + "40",
+                    borderLeft: "3px solid " + lock.color.bg,
+                    borderRadius: 2,
+                    pointerEvents: "none",
+                    zIndex: 3,
+                  }}>
+                    <div className="locked-overlay" style={{ width: "100%", height: "100%" }} />
+                    <div style={{ position: "absolute", left: 4, top: 2, fontSize: 7, color: lock.color.bg, fontWeight: 500, background: "rgba(255,255,240,0.8)", padding: "0 3px", borderRadius: 2 }}>
+                      ?? {lock.bucketName}
+                    </div>
+                  </div>
+                ))}
+                
+                {/* User Events */}
+                {positionedEvents.map(ev => {
+                  const isActive = ev.bucketId === selectedBucket;
+                  const eventColor = buckets.find(b => b.id === ev.bucketId)?.color || ev.color;
+                  
+                  return (
+                    <EventBlock
+                      key={ev.id}
+                      event={{
+                        ...ev,
+                        leftPos: getLeftPos(ev.startMin),
+                        topPos: 4,
+                        height: 62,
+                        width: ev.durationMins * 1.9
+                      }}
+                      bucketColor={eventColor}
+                      onRemove={removeEvent}
+                      onEdit={editEvent}
+                      isActive={isActive}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+
+=== END OF FILE ===
+
+=== BEGINNING OF ====
+File: EventBlock.jsx
+Path: .\src\components\EventBlock.jsx
+
+import React from 'react'
+import { useState } from 'react'
+import { formatTime, parseTime, formatDuration } from '../utils/helpers'
+
+export function EventBlock({ event, bucketColor, onRemove, onEdit, isActive }) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [editLabel, setEditLabel] = useState(event.label)
+  const [editStartTime, setEditStartTime] = useState(formatTime(event.startMin))
+  const [editDuration, setEditDuration] = useState(formatDuration(event.durationMins))
+
+  const handleSave = () => {
+    const newStartMin = parseTime(editStartTime)
+    const newDurationMins = parseDuration(editDuration)
+    
+    if (newStartMin === null) {
+      alert('Invalid start time. Use format like 9am, 14:30, or 2:00pm')
+      return
+    }
+    
+    if (newDurationMins === null || newDurationMins < 15) {
+      alert('Invalid duration. Minimum 15 minutes. Use format like 1h30m or 90m')
+      return
+    }
+    
+    const newEndMin = newStartMin + newDurationMins
+    if (newEndMin > 24 * 60) {
+      alert('Event would extend beyond midnight')
+      return
+    }
+    
+    onEdit(event.id, event.bucketId, {
+      label: editLabel.trim(),
+      startMin: newStartMin,
+      durationMins: newDurationMins
+    })
+    setIsEditing(false)
+  }
+
+  const handleCancel = () => {
+    setEditLabel(event.label)
+    setEditStartTime(formatTime(event.startMin))
+    setEditDuration(formatDuration(event.durationMins))
+    setIsEditing(false)
+  }
+
+  if (isEditing) {
+    return (
+      <div className="event-block-editing" style={{
+        position: "absolute",
+        left: event.leftPos,
+        top: event.topPos - 2,
+        height: event.height + 4,
+        width: Math.max(event.width, 200),
+        background: bucketColor.bg,
+        borderLeft: `4px solid ${bucketColor.light}`,
+        borderRadius: 3,
+        display: "flex",
+        flexDirection: "column",
+        padding: "4px",
+        gap: "4px",
+        zIndex: 20,
+        boxShadow: "0 4px 12px rgba(0,0,0,0.3)"
+      }}>
+        <input type="text" value={editLabel} onChange={(e) => setEditLabel(e.target.value)} style={{ fontSize: 9, padding: "2px 4px", borderRadius: "2px", border: "1px solid #ccc", background: "white", width: "100%" }} autoFocus />
+        <div style={{ display: "flex", gap: "4px" }}>
+          <input type="text" value={editStartTime} onChange={(e) => setEditStartTime(e.target.value)} placeholder="Start" style={{ fontSize: 8, padding: "2px 4px", borderRadius: "2px", border: "1px solid #ccc", background: "white", width: "45%" }} />
+          <input type="text" value={editDuration} onChange={(e) => setEditDuration(e.target.value)} placeholder="Duration" style={{ fontSize: 8, padding: "2px 4px", borderRadius: "2px", border: "1px solid #ccc", background: "white", width: "45%" }} />
+        </div>
+        <div style={{ display: "flex", gap: "4px", justifyContent: "flex-end" }}>
+          <button onClick={handleSave} style={{ fontSize: 7, padding: "2px 6px", background: "#27ae60", color: "white", border: "none", borderRadius: "2px", cursor: "pointer" }}>Save</button>
+          <button onClick={handleCancel} style={{ fontSize: 7, padding: "2px 6px", background: "#7a6e62", color: "white", border: "none", borderRadius: "2px", cursor: "pointer" }}>Cancel</button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="event-block" style={{
+      position: "absolute",
+      left: event.leftPos,
+      top: event.topPos,
+      height: event.height,
+      width: Math.max(event.width, 36),
+      background: bucketColor.bg,
+      borderLeft: `4px solid ${bucketColor.light}`,
+      borderRadius: 3,
+      opacity: isActive ? 1 : 0.85,
+      display: "flex",
+      alignItems: "center",
+      padding: "0 24px 0 8px",
+      overflow: "hidden",
+      zIndex: 5,
+      cursor: 'pointer',
+      boxShadow: isActive ? '0 2px 4px rgba(0,0,0,0.2)' : 'none'
+    }}>
+      <div style={{ fontSize: 8, color: "#fff", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", cursor: 'pointer' }} onDoubleClick={() => setIsEditing(true)}>
+        {event.label}
+      </div>
+      {event.width > 60 && (
+        <div style={{ fontSize: 7, color: "#ffffffcc", marginLeft: 5, whiteSpace: "nowrap" }}>
+          {formatTime(event.startMin)}-{formatTime(event.startMin + event.durationMins)}
+        </div>
+      )}
+      <div style={{ display: "flex", gap: "4px", marginLeft: "auto" }}>
+        <button onClick={(e) => { e.stopPropagation(); setIsEditing(true); }} style={{ background: "rgba(255,255,255,0.3)", border: "none", color: "white", fontSize: 8, borderRadius: 2, padding: "1px 4px", cursor: "pointer", opacity: 0.7 }}>?</button>
+        <button onClick={(e) => { e.stopPropagation(); onRemove(event.bucketId, event.id); }} style={{ background: "rgba(0,0,0,0.55)", border: "none", color: "white", fontSize: 9, borderRadius: 2, padding: "1px 5px", cursor: "pointer", opacity: 0 }} className="del-btn">?</button>
+      </div>
+    </div>
+  )
+}
+
+
+=== END OF FILE ===
+
+=== BEGINNING OF ====
+File: BucketManager.jsx
+Path: .\src\components\BucketManager.jsx
+
+// src/components/BucketManager.jsx
+import { formatDuration } from '../utils/helpers'
+
+export function BucketManager({ 
+  buckets, selectedBucket, setSelectedBucket,
+  newBucketName, setNewBucketName,
+  newBucketPriority, setNewBucketPriority,
+  addBucket, removeBucket, onClose, colors
+}) {
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0,0,0,0.5)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1000,
+      padding: '16px'
+    }}>
+      <div style={{
+        background: colors.sidebarBg,
+        borderRadius: '12px',
+        width: '100%',
+        maxWidth: '500px',
+        maxHeight: '80vh',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden'
+      }}>
+        <div style={{ padding: '16px', borderBottom: `1px solid ${colors.sidebarBorder}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 style={{ margin: 0 }}>Manage Buckets</h3>
+          <button onClick={onClose} className="btn-ghost" style={{ padding: '4px 8px' }}>?</button>
+        </div>
+        
+        <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+          {buckets.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '20px', color: '#b0a898' }}>No buckets yet. Create one below.</div>
+          ) : (
+            buckets.map((b) => (
+              <div key={b.id} 
+                onClick={() => setSelectedBucket(b.id)} 
+                style={{ 
+                  padding: '12px', 
+                  marginBottom: '8px',
+                  background: selectedBucket === b.id ? colors.timeRulerBg : 'transparent',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  border: `1px solid ${colors.sidebarBorder}`
+                }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ width: 40, height: 40, borderRadius: '50%', background: b.color.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span style={{ fontSize: 16, color: '#fff', fontWeight: 600 }}>{b.priority}</span>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 16, fontWeight: 500 }}>{b.name}</div>
+                    <div style={{ fontSize: 12, color: '#b0a898' }}>
+                      {b.events.length} events · {formatDuration(b.events.reduce((sum, e) => sum + e.durationMins, 0))} total
+                    </div>
+                  </div>
+                  <button onClick={(e) => { e.stopPropagation(); removeBucket(b.id); }} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#c0392b' }}>?</button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+        
+        <div style={{ padding: '16px', borderTop: `1px solid ${colors.sidebarBorder}` }}>
+          <input 
+            placeholder="Bucket name" 
+            value={newBucketName} 
+            onChange={e => setNewBucketName(e.target.value)} 
+            style={{ width: '100%', marginBottom: '8px' }} 
+          />
+          <input 
+            placeholder="Priority (1 = highest)" 
+            value={newBucketPriority} 
+            onChange={e => setNewBucketPriority(e.target.value)} 
+            type="number" 
+            min="1" 
+            style={{ width: '100%', marginBottom: '12px' }} 
+          />
+          <button className="btn-solid" onClick={addBucket} style={{ width: '100%' }}>+ CREATE BUCKET</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+=== END OF FILE ===
+
+=== BEGINNING OF ====
+File: EventDetailsModal.jsx
+Path: .\src\components\EventDetailsModal.jsx
+
+// src/components/EventDetailsModal.jsx
+import { useState } from 'react'
+import { formatTime, formatDuration, parseTime, parseDuration } from '../utils/helpers'
+
+export function EventDetailsModal({ event, bucket, onClose, onEdit, onDelete, colors }) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [editLabel, setEditLabel] = useState(event.label)
+  const [editStartTime, setEditStartTime] = useState(formatTime(event.startMin))
+  const [editDuration, setEditDuration] = useState(formatDuration(event.durationMins))
+
+  const handleSave = () => {
+    const newStartMin = parseTime(editStartTime)
+    const newDurationMins = parseDuration(editDuration)
+    
+    if (newStartMin === null) {
+      alert('Invalid start time')
+      return
+    }
+    if (newDurationMins === null || newDurationMins < 15) {
+      alert('Invalid duration (min 15 minutes)')
+      return
+    }
+    
+    onEdit(event.id, event.bucketId, {
+      label: editLabel,
+      startMin: newStartMin,
+      durationMins: newDurationMins
+    })
+    setIsEditing(false)
+  }
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0,0,0,0.5)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1000,
+      padding: '16px'
+    }}>
+      <div style={{
+        background: colors.sidebarBg,
+        borderRadius: '12px',
+        width: '100%',
+        maxWidth: '400px',
+        overflow: 'hidden'
+      }}>
+        <div style={{ padding: '16px', borderBottom: `1px solid ${colors.sidebarBorder}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 style={{ margin: 0 }}>Event Details</h3>
+          <button onClick={onClose} className="btn-ghost" style={{ padding: '4px 8px' }}>?</button>
+        </div>
+        
+        <div style={{ padding: '16px' }}>
+          {isEditing ? (
+            <>
+              <input 
+                value={editLabel} 
+                onChange={(e) => setEditLabel(e.target.value)} 
+                style={{ width: '100%', marginBottom: '12px' }}
+                placeholder="Event label"
+              />
+              <input 
+                value={editStartTime} 
+                onChange={(e) => setEditStartTime(e.target.value)} 
+                style={{ width: '100%', marginBottom: '12px' }}
+                placeholder="Start time (9am, 14:30)"
+              />
+              <input 
+                value={editDuration} 
+                onChange={(e) => setEditDuration(e.target.value)} 
+                style={{ width: '100%', marginBottom: '16px' }}
+                placeholder="Duration (1h30m, 90m)"
+              />
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button className="btn-solid" onClick={handleSave} style={{ flex: 1 }}>Save</button>
+                <button className="btn-ghost" onClick={() => setIsEditing(false)} style={{ flex: 1 }}>Cancel</button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ marginBottom: '12px' }}>
+                <div style={{ fontSize: 11, color: '#9a8e80', marginBottom: 4 }}>Event</div>
+                <div style={{ fontSize: 16, fontWeight: 500 }}>{event.label}</div>
+              </div>
+              <div style={{ marginBottom: '12px' }}>
+                <div style={{ fontSize: 11, color: '#9a8e80', marginBottom: 4 }}>Time</div>
+                <div>{formatTime(event.startMin)} - {formatTime(event.startMin + event.durationMins)}</div>
+                <div style={{ fontSize: 12, color: '#4caf50' }}>({formatDuration(event.durationMins)})</div>
+              </div>
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ fontSize: 11, color: '#9a8e80', marginBottom: 4 }}>Bucket</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ width: 24, height: 24, borderRadius: '50%', background: bucket.color.bg }} />
+                  <span>{bucket.name} (P{bucket.priority})</span>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button className="btn-ghost" onClick={() => setIsEditing(true)} style={{ flex: 1 }}>? Edit</button>
+                <button className="btn-solid" onClick={onDelete} style={{ flex: 1, background: '#c0392b', borderColor: '#c0392b' }}>?? Delete</button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+=== END OF FILE ===
+
