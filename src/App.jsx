@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useCalendar } from './hooks/useCalendar'
 import { SimpleAuth } from './components/SimpleAuth'
 import { CalendarActions } from './components/CalendarActions'
-import { storageService } from './services/fileStorageService'
+import { storageService } from './services/storageService'
 import { Timeline } from './components/Timeline'
 import { ThemePicker } from './components/ThemePicker'
 import { BucketManager } from './components/BucketManager'
@@ -32,6 +32,15 @@ function App() {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
+  const {
+    buckets, selectedBucket, eventError, newBucketName, newBucketPriority,
+    allEvents, conflictPreview, pendingEvent,
+    setSelectedBucket, setNewBucketName, setNewBucketPriority,
+    setBuckets, addBucket, removeBucket, addEventOnDate,
+    editEvent, removeEvent, getAvailableSlots, getLockingEvents,
+    confirmOverride, cancelOverride,
+  } = useCalendar()
+
   const hasMounted = useRef(false)
   const autoSaveTimer = useRef(null)
 
@@ -47,15 +56,6 @@ function App() {
     }, 1000)
     return () => clearTimeout(autoSaveTimer.current)
   }, [buckets])
-
-  const {
-    buckets, selectedBucket, eventError, newBucketName, newBucketPriority,
-    allEvents, conflictPreview, pendingEvent,
-    setSelectedBucket, setNewBucketName, setNewBucketPriority,
-    setBuckets, addBucket, removeBucket, addEventOnDate,
-    editEvent, removeEvent, getAvailableSlots, getLockingEvents,
-    confirmOverride, cancelOverride,
-  } = useCalendar()
 
   useEffect(() => {
     async function restoreSession() {

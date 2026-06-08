@@ -1,7 +1,7 @@
 ﻿import React from 'react'
 // src/build_000_002/components/SimpleAuth.jsx
 import { useState } from 'react'
-import { storageService } from '../services/fileStorageService'
+import { storageService } from '../services/storageService'
 import { THEMES } from '../constants/themes'
 
 export function SimpleAuth({ onAuthSuccess }) {

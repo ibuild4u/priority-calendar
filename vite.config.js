@@ -5,11 +5,11 @@ export default defineConfig({
   plugins: [react()],
   base: '/priority-calendar/',
   server: {
-    port: 5173,
-    open: true,
+    port: parseInt(process.env.PORT || '5173'),
+    open: false,
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        target: `http://localhost:${process.env.SHELL_PORT_API || 3001}`,
         changeOrigin: true
       }
     }
