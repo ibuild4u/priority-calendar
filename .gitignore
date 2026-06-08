@@ -8,3 +8,6 @@ dist/
 public/data/session.json
 public/data/users/**
 !public/data/users/testuser/**
+
+# worktree container — managed by git worktree
+branches/
